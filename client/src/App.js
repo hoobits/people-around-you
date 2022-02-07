@@ -25,11 +25,15 @@ const getDesignTokens = (mode) => ({
 
 
 export default function ToggleColorMode() {
-  const [mode, setMode] = React.useState('light');
+  const [mode, setMode] = React.useState(localStorage.getItem('theme') ?? 'light');
   const colorMode = React.useMemo(
     () => ({
-      toggleColorMode: () => {
-        setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
+      toggleColorMode: (text) => {
+        setMode((prevMode) => {
+          let mode = prevMode === 'light' ? 'dark' : 'light';
+          localStorage.setItem('theme', mode);
+          return mode;
+        });
       },
     }),
     [],
@@ -48,17 +52,10 @@ export default function ToggleColorMode() {
 
 function App() {
   const colorMode = React.useContext(ColorModeContext);
-  const [data, setData] = React.useState(null);
-  React.useEffect(() => {
-    fetch("/api")
-      .then((res) => res.json())
-      .then((data) => setData(data.message));
-  }, []);
 
   return (
     <StyledEngineProvider injectFirst>
       <ResponsiveAppBar toggleColorMode={colorMode.toggleColorMode} />
-      <p>{!data ? "Loading..." : data}</p>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Main />} />

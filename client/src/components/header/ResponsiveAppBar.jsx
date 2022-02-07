@@ -16,9 +16,9 @@ import { useTheme } from '@mui/material/styles';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { LoginModal } from './LoginModal';
+import authProvider from '../../providers/authProvider';
 
 const pages = ['Products', 'Pricing', 'Blog'];
-const settings = ['Profile', 'Logout'];
 
 /**
  * Primary UI component for user interaction
@@ -26,6 +26,7 @@ const settings = ['Profile', 'Logout'];
 export const ResponsiveAppBar = ({ toggleColorMode, ...props }) => {
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
+  const [auth, setAuth] = React.useState(authProvider.checkAuth());
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -40,6 +41,11 @@ export const ResponsiveAppBar = ({ toggleColorMode, ...props }) => {
 
   const handleCloseUserMenu = () => {
     setAnchorElUser(null);
+  };
+
+  const handleLogout = () => {
+    authProvider.logout();
+    setAuth(authProvider.checkAuth());
   };
 
   const theme = useTheme();
@@ -117,12 +123,15 @@ export const ResponsiveAppBar = ({ toggleColorMode, ...props }) => {
             <IconButton sx={{ ml: 1 }} onClick={toggleColorMode} color="inherit">
               {theme.palette.mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
-            <LoginModal />
+            { !auth ? 
+            <LoginModal setAuth={setAuth}/>
+            :
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                 <Avatar alt="Remy Sharp" src="/static/images/avatar/2.jpg" />
               </IconButton>
             </Tooltip>
+            }
             <Menu
               sx={{ mt: '45px' }}
               id="menu-appbar"
@@ -139,11 +148,9 @@ export const ResponsiveAppBar = ({ toggleColorMode, ...props }) => {
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
             >
-              {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseNavMenu}>
-                  <Typography textAlign="center">{setting}</Typography>
-                </MenuItem>
-              ))}
+              <MenuItem onClick={handleCloseNavMenu}>
+                <Typography textAlign="center" onClick={handleLogout}>Logout</Typography>
+              </MenuItem>
             </Menu>
           </Box>
         </Toolbar>

@@ -29,7 +29,7 @@ const style = {
 /**
  * Primary UI component for user interaction
  */
-export const LoginModal = ({ toggleColorMode, ...props }) => {
+export const LoginModal = ({ setAuth, ...props }) => {
   const [open, setOpen] = React.useState(false);
   const [values, setValues] = React.useState({
     email: '',
@@ -40,7 +40,6 @@ export const LoginModal = ({ toggleColorMode, ...props }) => {
     password: '',
   });
   const [showPassword, setShowPassword] = React.useState(false);
-  const [user, setUser] = React.useState({});
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -57,14 +56,20 @@ export const LoginModal = ({ toggleColorMode, ...props }) => {
     event.preventDefault();
   };
 
-  const handleLogin = (event) => {
-    authProvider.login(values);
+  const handleLogin = async (event) => {
+    authProvider.login(values).then(() => {
+      setAuth(authProvider.checkAuth());
+    });
   };
 
   const handleCheck = (event) => {
     console.log(authProvider.checkAuth());
   };
 
+  const handleRefresh = (event) => {
+    console.log('handleRefresh');
+    console.log(authProvider.refresh());
+  };
 
   return (
     <>
@@ -113,6 +118,7 @@ export const LoginModal = ({ toggleColorMode, ...props }) => {
               </FormControl>
               <Button variant="contained" onClick={handleLogin}>Login</Button>
               <Button variant="contained" onClick={handleCheck}>Check</Button>
+              <Button variant="contained" onClick={handleRefresh}>Refresh</Button>
             </div>
           </Box>
         </Box>

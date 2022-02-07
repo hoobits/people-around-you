@@ -14,8 +14,8 @@ const authProvider = {
                 }
                 return response.json();
             })
-            .then(({ accessToken }) => {
-                inMemoryJWTManager.setToken(accessToken)
+            .then(({ accessToken, tokenExpiry }) => {
+                inMemoryJWTManager.setToken(accessToken, tokenExpiry)
             });
     },
     logout: () => {
@@ -24,7 +24,7 @@ const authProvider = {
     },
 
     checkAuth: () => {
-        return inMemoryJWTManager.getToken() ? Promise.resolve() : Promise.reject();
+        return inMemoryJWTManager.getToken();
     },
 
     checkError: (error) => {
@@ -38,6 +38,24 @@ const authProvider = {
 
     getPermissions: () => {
         return inMemoryJWTManager.getToken() ? Promise.resolve() : Promise.reject();
+    },
+
+    refresh: () => {
+        const request = new Request('/api/auth/refresh-token', {
+            method: 'POST',
+            body: JSON.stringify({  }),
+            headers: new Headers({ 'Content-Type': 'application/json' })
+        });
+        return fetch(request)
+            .then((response) => {
+                if (response.status < 200 || response.status >= 300) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            })
+            .then((response) => {
+               console.log(response);
+            });
     },
 };
 
