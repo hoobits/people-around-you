@@ -1,10 +1,12 @@
-const config = require("../config/auth.config");
+const authConfig = require("../config/auth.config");
 const db = require("../models");
 const User = db.user;
 const Role = db.role;
+const RefreshToken = db.refreshToken;
 
 var jwt = require("jsonwebtoken");
 var bcrypt = require("bcrypt");
+const crypto = require("crypto");
 
 exports.signup = (req, res) => {
   const user = new User({
@@ -64,7 +66,7 @@ exports.signup = (req, res) => {
 
 exports.signin = (req, res) => {
   User.findOne({
-    username: req.body.username
+    email: req.body.email
   })
     .populate("roles", "-__v")
     .exec((err, user) => {
@@ -89,21 +91,103 @@ exports.signin = (req, res) => {
         });
       }
 
-      var token = jwt.sign({ id: user.id }, config.secret, {
-        expiresIn: 86400 // 24 hours
+      const ipAddress = req.ip;
+      const refreshToken = generateRefreshToken(user, ipAddress);
+      refreshToken.save((err, refreshToken) => {
+        if (err) {
+          res.status(500).send({ message: err });
+          return;
+        }
+  
+        const details = processAuth(user, res, refreshToken);
+        res.status(200).send(details);
       });
 
-      var authorities = [];
-
-      for (let i = 0; i < user.roles.length; i++) {
-        authorities.push("ROLE_" + user.roles[i].name.toUpperCase());
-      }
-      res.status(200).send({
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        roles: authorities,
-        accessToken: token
-      });
     });
 };
+
+exports.refreshToken = async (req, res) => {
+  const token = req.signedCookies[authConfig.refreshTokenName];
+  const ipAddress = req.ip;
+  const refreshToken = await getRefreshToken(token);
+  if (!refreshToken) {
+    res.status(404).send({ message: "Invalid token." });
+    return;
+  }
+  const { user } = refreshToken;
+
+  // replace old refresh token with a new one and save
+  const newRefreshToken = generateRefreshToken(user, ipAddress);
+  refreshToken.revoked = Date.now();
+  refreshToken.revokedByIp = ipAddress;
+  refreshToken.replacedByToken = newRefreshToken.token;
+  await refreshToken.save();
+  await newRefreshToken.save();
+
+  const details = processAuth(user, res, refreshToken);
+  res.status(200).send(details);
+}
+
+function processAuth(user, res, refreshToken) {
+  var authorities = [];
+
+  for (let i = 0; i < user.roles.length; i++) {
+    authorities.push("ROLE_" + user.roles[i].name.toUpperCase());
+  }
+
+  const cookieOptions = {
+    expires: refreshToken.expires,
+    httpOnly: true,
+    //overwrite: true,
+    secure: false,
+    signed: true,
+  };
+  res.cookie(
+    authConfig.refreshTokenName,
+    refreshToken.token,
+    cookieOptions
+  );
+  const jwtToken = generateJwtToken(user);
+
+  return {
+    username: user.username,
+    roles: authorities,
+    accessToken: jwtToken,
+    tokenExpiry: authConfig.expiration
+  };
+}
+
+async function getRefreshToken(token) {
+  const refreshToken = await RefreshToken.findOne({ token }).populate({
+    path: 'user',
+    populate: ({ path: 'roles' })
+  });
+  if (!refreshToken || !refreshToken.isActive) return false;
+  return refreshToken;
+}
+
+function generateJwtToken(user) {
+  // create a jwt token containing the user id that expires in 15 minutes
+  return jwt.sign({ id: user.id }, authConfig.secret, {
+    expiresIn: authConfig.jwtExpiration
+  });
+}
+
+function randomTokenString() {
+  return crypto.randomBytes(40).toString('hex');
+}
+
+function generateRefreshToken(user, ipAddress) {
+  const rememberMe = null;
+  const delay = rememberMe
+    ? authConfig.rememberRefreshTokenExpiration * 1000
+    : authConfig.refreshTokenExpiration * 1000;
+  const tokenExpires = new Date(new Date().getTime() + delay);
+
+  return new RefreshToken({
+      user: user.id,
+      token: randomTokenString(),
+      expires: tokenExpires,
+      createdByIp: ipAddress
+  });
+}

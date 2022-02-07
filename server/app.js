@@ -1,11 +1,14 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const dbConfig = require("./app/config/db.config.js");
+const cookieParser = require('cookie-parser');
+const dbConfig = require("./app/config/db.config");
+const authConfig = require("./app/config/auth.config");
 
 const PORT = process.env.PORT || 3001;
 const app = express();
 const urlencodeParser = bodyParser.urlencoded({extended: false});
 app.use(bodyParser.json(), urlencodeParser);
+app.use(cookieParser(authConfig.cookieParserSecret));
 
 require('./app/routes/auth.routes')(app);
 require('./app/routes/user.routes')(app);
